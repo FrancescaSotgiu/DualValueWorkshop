@@ -187,10 +187,13 @@ const MICRO=[["customers","The people we serve and those who decide or pay"],["c
 /* ===================== STATE ===================== */
 const KEY="dual-value-workshop-v1";
 const blankEnv=()=>({country:"",comps:[],micro:{customers:"",competitors:"",suppliers:"",intermediaries:"",publics:""},macro:Object.fromEntries(MACRO.map(m=>[m[0],{trend:"",impact:"",sure:""}])),ai:"",prompted:false});
-const blank=()=>({step:0,env:blankEnv(),org:{name:"",sector:"",customer:"",focal:"",facilitator:"",date:""},people:["",""],scores:{},jtbd:{jobs:[],pains:[],gains:[]},pyr:{sal:3,mean:3,resp:3,reso:3,evid:""},ai:{q:"",said:"",wrong:""},dil:{},open:null,purpose:{best:"",tension:"",ideal:"We believe the world would be a better place if ",type:"",checks:[],gap:"",gapNote:""},commits:[{type:"Start",what:"",owner:"",date:""}]});
-let S; try{const x=JSON.parse(localStorage.getItem(KEY));S=x?{...blank(),...x}:blank();}catch(e){S=blank();}
+const blank=()=>({step:0,env:blankEnv(),org:{name:"",sector:"",customer:"",focal:"",facilitator:"",date:"",mode:"",sources:[],why:""},people:["",""],scores:{},jtbd:{jobs:[],pains:[],gains:[]},pyr:{sal:3,mean:3,resp:3,reso:3,evid:""},ai:{q:"",said:"",wrong:""},dil:{},open:null,purpose:{best:"",tension:"",ideal:"We believe the world would be a better place if ",type:"",checks:[],gap:"",gapNote:""},commits:[{type:"Start",what:"",owner:"",date:""}],mt:{view:"",differ:"",ask:"",message:""}});
+let S=blank();
+try{localStorage.removeItem(KEY);}catch(e){} // nothing is stored: also clears data from older versions
 if(!S.env||!S.env.macro) S.env=blankEnv();
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function save(){} // deliberately empty: answers live only in this open page
+function hasContent(){return !!(S.org.name||S.org.why||Object.keys(S.scores).length||S.jtbd.jobs.length||Object.keys(S.dil).length||S.purpose.best);}
+window.addEventListener("beforeunload",e=>{if(hasContent()){e.preventDefault();e.returnValue="";}});
 const $=s=>document.querySelector(s), esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const STEPS=["Start","1 Scorecard","2 Customer","3 Environment","4 Dilemmas","5 Purpose","Report","Guide"];
 
@@ -237,11 +240,12 @@ function vStart(){const o=S.org;return `
 <div class="card hero">
   <div class="eyebrow">Vrije Universiteit Amsterdam · Executive MBA Leading with Purpose</div>
   <h1>How well do we create value, for the people we serve and for ourselves?</h1>
-  <p class="lede">A half-day workshop for your own team, built on the marketing block: the six core principles, the brand pyramid, purpose, and marketing in a world of AI.</p>
-  <p class="small">One person facilitates on a shared screen. Everything you type stays in this browser: nothing is sent anywhere.</p>
+  <p class="lede">A guide to get your assignment started, or to complement it: a structured way to understand the core value and positioning of your organisation, built on the core principles of marketing, the brand pyramid, purpose, and marketing in a world of AI.</p>
+  <p>Use it as a workshop with colleagues, or as points of reflection for your internal analysis through interviews and informal conversations with the board, suppliers, customers and colleagues. You can answer on your own or involve others. The last step prepares your moment in the spotlight: a short message for your management team.</p>
+  <p class="small"><b>No answer is saved or sent anywhere.</b> Everything disappears when you close or reload the page, so print or download the report at the end.</p>
 </div>
 <div class="card">
-  <h2>Set up the session</h2>
+  <h2>Set up</h2>
   <div class="grid2">
     <div><label>Organisation or unit</label><input type="text" data-bind="org.name" value="${esc(o.name)}"></div>
     <div><label>Sector</label><select data-bind="org.sector">${["","Healthcare","Education","Arts and culture","Public sector or regulator","International or non-profit","B2B industry or engineering","Consumer, pharma or tech","Financial services or pensions","Other"].map(x=>`<option ${o.sector===x?"selected":""}>${x}</option>`).join("")}</select></div>
@@ -250,9 +254,13 @@ function vStart(){const o=S.org;return `
     <div><label>Facilitator</label><input type="text" data-bind="org.facilitator" value="${esc(o.facilitator)}"></div>
     <div><label>Date</label><input type="date" data-bind="org.date" value="${esc(o.date)}"></div>
   </div>
+  <label>How are you using this guide?</label>
+  <select data-bind="org.mode">${["","A workshop with colleagues","Individual reflection","Interviews and informal conversations","A combination"].map(x=>`<option ${o.mode===x?"selected":""}>${x}</option>`).join("")}</select>
+  <label>Whose views are included?</label>
+  ${["Board or management team","Colleagues","Customers or the people we serve","Suppliers or partners","Others outside the organisation"].map(x=>`<label class="opt"><input type="checkbox" ${(o.sources||[]).includes(x)?"checked":""} onchange="toggleSource('${x}')"><span>${x}</span></label>`).join("")}
   <label>Start with why: in one sentence, why does our organisation exist? <span class="note">· write it quickly, without discussion; we come back to it in step 5</span></label>
   <textarea data-bind="org.why" style="min-height:60px">${esc(S.org.why||"")}</textarea>
-  <label>Participants (first names or roles; leave anonymous if you prefer)</label>
+  <label>Participants or interviewees <span class="note">· roles are enough; leave names out if you prefer. Working alone? Add yourself and, if you like, the views you heard in conversations.</span></label>
   <div id="plist">${S.people.map((p,i)=>`<div class="addrow" style="margin-bottom:6px"><input type="text" value="${esc(p)}" oninput="S.people[${i}]=this.value;save()" placeholder="Participant ${i+1}">${S.people.length>1?`<button class="btn small ghost" onclick="S.people.splice(${i},1);delete S.scores[${i}];save();render()">Remove</button>`:""}</div>`).join("")}</div>
   <button class="btn small ghost" onclick="S.people.push('');save();render()">Add participant</button>
   <div class="coach"><b>Ground rules.</b> Rate silently first, then talk. Disagreement is information, not a problem. Bring evidence: what you have seen, heard or measured. Speak for the people you serve, not for your department.</div>
@@ -261,15 +269,15 @@ function vStart(){const o=S.org;return `
 
 function vScore(){const N=names(),st=stats(),f=focusPrinciples();return `
 <div class="card">
-  <div class="eyebrow">Step 1 · 30 minutes · the six core principles, plus society</div>
+  <div class="eyebrow">Step 1 · 30 minutes · the core principles of marketing</div>
   <h2>The scorecard: where do we stand?</h2>
-  <p>Each participant rates the seven statements from 1 (not at all) to 5 (fully), thinking of <b>${esc(S.org.focal||S.org.customer||"the people we serve")}</b>. Rate silently on paper first (3 minutes), then enter the scores.</p>
+  <p>Each participant rates each statement from 1 (not at all) to 5 (fully), thinking of <b>${esc(S.org.focal||S.org.customer||"the people we serve")}</b>. Rate silently on paper first (3 minutes), then enter the scores.</p>
   <div style="overflow-x:auto"><table>
     <tr><th>Participant</th>${PRINCIPLES.map(([k,t])=>`<th class="num" title="${esc(PRINCIPLES.find(p=>p[0]===k)[2])}">${t}</th>`).join("")}</tr>
     ${N.map((n,i)=>`<tr><td>${esc(n)}</td>${PRINCIPLES.map(([k])=>`<td class="num"><input class="score" type="number" min="1" max="5" value="${(S.scores[i]||{})[k]||""}" oninput="setScore(${i},'${k}',this.value)"></td>`).join("")}</tr>`).join("")}
   </table></div>
-  <details class="small" style="margin-top:10px"><summary>The seven statements</summary><ol>${PRINCIPLES.map(([k,t,d])=>`<li><b>${t}.</b> ${d}</li>`).join("")}</ol>
-  <p class="note">Statements 1 to 6 follow the six core principles of marketing: value for the people you serve and for the organisation. Statement 7 adds the societal marketing concept: value for society in the long run. If you cannot choose whom you serve (a hospital, a school, a regulator): have you chosen whom you design for first?</p></details>
+  <details class="small" style="margin-top:10px"><summary>The core principles behind the statements</summary><ol>${PRINCIPLES.map(([k,t,d])=>`<li><b>${t}.</b> ${d}</li>`).join("")}</ol>
+  <p class="note">The statements follow the core principles of marketing: value for the people you serve and for the organisation. The last statement adds the societal marketing concept: value for society in the long run. If you cannot choose whom you serve (a hospital, a school, a regulator): have you chosen whom you design for first?</p></details>
 </div>
 <div class="card">
   <h3>What the scores say</h3>
@@ -277,7 +285,7 @@ function vScore(){const N=names(),st=stats(),f=focusPrinciples();return `
     return `<div class="${f.low.includes(k)||f.spread===k?"hi":""}"><span>${t}</span><span class="track"><span class="fill" style="width:${s.mean/5*100}%"></span><span class="range" style="left:${(s.min-1)/4*100}%;width:${(s.max-s.min)/4*100}%"></span></span><span class="small">${s.mean.toFixed(1)} · range ${s.min} to ${s.max}</span></div>`;}).join("")}</div>
   <p class="note">Bar: average. Bracket: lowest to highest score in the room.</p>
   ${f.low.length?`<div class="coach"><b>Discuss first:</b> the lowest scores, <b>${f.low.map(pname).join("</b> and <b>")}</b>${f.spread?`, and the widest disagreement, <b>${pname(f.spread)}</b>. Ask the people with the highest and lowest score to explain what they see`:""}. These principles also mark the dilemma cards suggested in step 4.</div>`:""}
-  <div class="prompt">For each discussed principle: what is one piece of evidence for the score? What would a 5 look like here?</div>
+  <div class="prompt">For each discussed principle: what is one piece of evidence for the score? What would a 5 look like here? And where would our management team score differently, and why?</div>
   ${nextBtn(2,"Continue to step 2: the customer lens")}
 </div>`;}
 window.setScore=(i,k,v)=>{v=Math.max(1,Math.min(5,parseInt(v)||0));S.scores[i]=S.scores[i]||{};if(v)S.scores[i][k]=v;else delete S.scores[i][k];save();
@@ -427,6 +435,20 @@ function vPurpose(){const p=S.purpose;const crit=CRIT;return `
   <label>The evidence</label><input type="text" data-bind="purpose.gapNote" value="${esc(p.gapNote)}">
 </div>
 <div class="card">
+  <div class="eyebrow">Your moment in the spotlight</div>
+  <h3>The management team's point of view</h3>
+  <p class="small">Prepare the conversation with your board or management team. Base it on what they have said to you, or on your best estimate if you have not spoken to them yet.</p>
+  <label>How does our management team see our core value and positioning today?</label>
+  <textarea data-bind="mt.view">${esc(S.mt.view)}</textarea>
+  <label>Where does this analysis confirm their view, and where does it challenge it?</label>
+  <textarea data-bind="mt.differ">${esc(S.mt.differ)}</textarea>
+  <label>The one question we want to ask the management team</label>
+  <input type="text" data-bind="mt.ask" value="${esc(S.mt.ask)}">
+  <label>Our message to the management team, in two or three sentences</label>
+  <textarea data-bind="mt.message" style="min-height:70px">${esc(S.mt.message)}</textarea>
+  <div class="prompt">Lead with what the people you serve experience, show one piece of evidence, and end with a decision you ask them to take.</div>
+</div>
+<div class="card">
   <h3>Commitments: stop, start, keep</h3>
   <p class="small">Three to five commitments, each with one owner and a date. Look back at the scorecard, the pyramid and the dilemmas: what will we actually do differently?</p>
   <table><tr><th style="width:110px">Type</th><th>What exactly</th><th style="width:160px">Owner</th><th style="width:150px">By</th><th></th></tr>
@@ -438,9 +460,10 @@ function vPurpose(){const p=S.purpose;const crit=CRIT;return `
   <button class="btn small ghost" style="margin-top:10px" onclick="S.commits.push({type:'Start',what:'',owner:'',date:''});save();render()">Add commitment</button>
   ${nextBtn(6,"See the report")}
 </div>`;}
+window.toggleSource=x=>{const a=S.org.sources=S.org.sources||[];const j=a.indexOf(x);j>=0?a.splice(j,1):a.push(x);};
 window.toggleCheck=i=>{const c=S.purpose.checks;const j=c.indexOf(i);j>=0?c.splice(j,1):c.push(i);save();};
 
-function reportText(){const st=stats(),o=S.org;let t=`DUAL VALUE WORKSHOP · ${o.name||"Organisation"}${o.date?" · "+o.date:""}\nFacilitator: ${o.facilitator||"-"} · Participants: ${names().length}\nPeople we serve: ${o.customer||"-"} · Focus group: ${o.focal||"-"}\n\n1 · SCORECARD (average, range)\n`;
+function reportText(){const st=stats(),o=S.org;let t=`DUAL VALUE WORKSHOP · ${o.name||"Organisation"}${o.date?" · "+o.date:""}\nFacilitator: ${o.facilitator||"-"} · Participants: ${names().length}\nPeople we serve: ${o.customer||"-"} · Focus group: ${o.focal||"-"}\nApproach: ${o.mode||"-"}${(o.sources||[]).length?" · views of "+o.sources.join(", "):""}\n\nFOR THE MANAGEMENT TEAM\n  Message: ${S.mt.message||"-"}\n  Their view today: ${S.mt.view||"-"}\n  Confirms or challenges: ${S.mt.differ||"-"}\n  Our question: ${S.mt.ask||"-"}\n\n1 · SCORECARD (average, range)\n`;
   PRINCIPLES.forEach(([k,n])=>{const s=st[k];t+=`  ${n}: ${s?s.mean.toFixed(1)+" ("+s.min+" to "+s.max+")":"-"}\n`;});
   t+=`\n2 · CUSTOMER LENS\n  Jobs: ${S.jtbd.jobs.join("; ")||"-"}\n  Pains: ${S.jtbd.pains.join("; ")||"-"}\n  Gains: ${S.jtbd.gains.join("; ")||"-"}\n  Pyramid: salience ${S.pyr.sal}, meaning ${S.pyr.mean}, responses ${S.pyr.resp}, resonance ${S.pyr.reso}\n  Evidence: ${S.pyr.evid||"-"}\n`;
   if(S.ai.said||S.ai.wrong) t+=`  AI mirror: asked "${S.ai.q}". Said: ${S.ai.said}. Wrong or missing: ${S.ai.wrong}\n`;
@@ -457,7 +480,8 @@ function vReport(){const st=stats(),o=S.org,p=S.purpose;return `
   <div class="eyebrow">Workshop report</div>
   <h1>${esc(o.name||"Our organisation")}</h1>
   <p class="muted">${[o.date,o.facilitator?"facilitated by "+o.facilitator:"",o.sector].filter(Boolean).map(esc).join(" · ")}</p>
-  <p class="small"><b>People we serve:</b> ${esc(o.customer||"-")} · <b>Focus:</b> ${esc(o.focal||"-")}<br><b>Participants:</b> ${esc(names().join(", "))}</p>
+  <p class="small"><b>People we serve:</b> ${esc(o.customer||"-")} · <b>Focus:</b> ${esc(o.focal||"-")}<br>${o.mode?`<b>Approach:</b> ${esc(o.mode)}${(o.sources||[]).length?" · views of "+esc(o.sources.join(", ").toLowerCase()):""}<br>`:""}<b>Participants or interviewees:</b> ${esc(names().join(", "))}</p>
+  ${(S.mt.message||S.mt.ask||S.mt.view||S.mt.differ)?`<h3>For the management team</h3>${S.mt.message?`<div class="memo">${esc(S.mt.message)}</div>`:""}<p class="small" style="margin-top:8px">${S.mt.view?`<b>Their view today:</b> ${esc(S.mt.view)}<br>`:""}${S.mt.differ?`<b>Where this analysis confirms or challenges it:</b> ${esc(S.mt.differ)}<br>`:""}${S.mt.ask?`<b>Our question to them:</b> ${esc(S.mt.ask)}`:""}</p>`:""}
   <h3>Scorecard</h3>
   <div class="bars">${PRINCIPLES.map(([k,t])=>{const s=st[k];return s?`<div><span>${t}</span><span class="track"><span class="fill" style="width:${s.mean/5*100}%"></span><span class="range" style="left:${(s.min-1)/4*100}%;width:${(s.max-s.min)/4*100}%"></span></span><span class="small">${s.mean.toFixed(1)} · ${s.min} to ${s.max}</span></div>`:"";}).join("")}</div>
   <h3>Customer lens</h3>
@@ -481,13 +505,7 @@ function vReport(){const st=stats(),o=S.org,p=S.purpose;return `
     <button class="btn ghost" onclick="copyReport()">Copy report as text</button>
     <button class="btn ghost" onclick="downloadFile('workshop-report.txt',reportText(),'text/plain')">Download report (.txt)</button>
   </div>
-  <h3 style="margin-top:22px">Working with your instructor</h3>
-  <p class="small">Save the workshop file and send it to your instructor before a guidance session. They can open it in this same page with "Open a workshop file" and see exactly what your team decided.</p>
-  <div class="row">
-    <button class="btn ghost" onclick="downloadFile('workshop-'+(S.org.name||'team').replace(/\\W+/g,'-')+'.json',JSON.stringify(S,null,1),'application/json')">Save workshop file (.json)</button>
-    <label class="btn ghost" style="margin:0">Open a workshop file<input type="file" accept=".json,application/json" class="hidden" onchange="importFile(this)"></label>
-    <button class="btn ghost" onclick="if(confirmReset())resetAll()">Start a new workshop</button>
-  </div>
+  <div class="coach"><b>No answer is saved.</b> This page does not store anything. When you close or reload it, your answers are gone. Print the report, save it as PDF or download it before you leave.</div>
   <p class="note" id="msg"></p>
 </div>`;}
 window.doPrint=()=>{try{window.print();}catch(e){$("#msg").textContent="Printing is blocked here. Use Copy or Download instead.";}};
@@ -496,15 +514,12 @@ let DL=null;(async()=>{try{if(window.claude&&window.claude.use)DL=await window.c
 window.downloadFile=async(name,content,type)=>{
   if(DL){try{await DL.save({filename:name,data:new Blob([content],{type})});$("#msg").textContent="Saved "+name+".";}catch(e){$("#msg").textContent="The download was not completed.";}return;}
   try{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;document.body.appendChild(a);a.click();a.remove();$("#msg").textContent="If no file appeared, use Copy report instead.";}catch(e){$("#msg").textContent="Download was blocked here. Use Copy report instead.";}};
-window.importFile=inp=>{const f=inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const x=JSON.parse(rd.result);if(!x.org||!x.scores)throw 0;S={...blank(),...x,step:6};if(!S.env||!S.env.macro)S.env=blankEnv();save();render();}catch(e){$("#msg").textContent="This is not a workshop file.";}};rd.readAsText(f);};
-let resetArm=false;window.confirmReset=()=>{if(resetArm)return true;resetArm=true;$("#msg").textContent="Click again to erase this workshop from this browser. Save the file first if you want to keep it.";setTimeout(()=>resetArm=false,5000);return false;};
-window.resetAll=()=>{S=blank();save();render();};
 
 function vGuide(){return `
 <div class="card">
   <div class="eyebrow">Facilitator guide</div>
   <h2>Running the workshop in your organisation</h2>
-  <p>The workshop brings the Executive MBA marketing block into your own team. It works for commercial and non-commercial organisations alike: wherever the word "customer" fits badly, read "the people we serve".</p>
+  <p>This guide brings the Executive MBA marketing block into your own organisation. Use it as a workshop with colleagues, or as points of reflection for interviews and informal conversations with the board, suppliers, customers and colleagues. It can get your individual assignment started or complement it. It works for commercial and non-commercial organisations alike: wherever the word "customer" fits badly, read "the people we serve".</p>
   <h3>Before the session</h3>
   <ul>
     <li>Invite 5 to 8 colleagues from different functions, including at least one person who works with the people you serve every day.</li>
@@ -517,7 +532,7 @@ function vGuide(){return `
   <h3>Agenda</h3>
   <table><tr><th>Step</th><th>Minutes</th><th>What happens</th></tr>
   <tr><td>Start</td><td>10</td><td>Purpose of the session, ground rules, focus group, a first one-line why</td></tr>
-  <tr><td>1 · Scorecard</td><td>30</td><td>Silent rating of the six principles and value for society, then discuss the lowest and most disputed</td></tr>
+  <tr><td>1 · Scorecard</td><td>30</td><td>Silent rating of the core principles, including value for society, then discuss the lowest and most disputed</td></tr>
   <tr><td>2 · Customer lens</td><td>35</td><td>Jobs, pains and gains; the brand pyramid; the AI mirror</td></tr>
   <tr><td>3 · Environment</td><td>30</td><td>Micro and macro environment, competitors; AI draft checked by the room</td></tr>
   <tr><td>4 · Dilemmas</td><td>50</td><td>Two or three cards: decide, twist, decide again, name the trade-off</td></tr>
@@ -532,11 +547,11 @@ function vGuide(){return `
     <li>"What would we stop doing if we took this Big Ideal seriously?"</li>
   </ul>
   <h3>Working with your instructor</h3>
-  <p>You can run the workshop on your own, or with guidance. Save the workshop file from the report page and send it to your instructor before a short debrief call. The instructor opens it in this page and sees the same report. A good moment is after the session, before the commitments are shared more widely.</p>
+  <p>You can run the workshop on your own, or with guidance. If you want feedback, share the printed or downloaded report with your instructor before a short debrief call. A good moment is after the session, before the commitments are shared more widely.</p>
   <h3>Confidentiality</h3>
-  <p>Everything typed here stays in this browser on this computer. Nothing is sent anywhere unless you save and share the workshop file yourself. On a shared computer, use "Start a new workshop" on the report page when you are done.</p>
+  <p>No answer is saved or sent anywhere. Everything typed here exists only while the page is open; closing or reloading the page erases it. The only copy is the report you print or download yourself. The AI step works the same way: you decide what you paste into an AI tool.</p>
   <h3>The frameworks behind it</h3>
-  <p class="small">Six core principles of marketing (Tomczak; Herhausen); jobs to be done (Christensen et al. 2016) and the value proposition canvas; customer-based brand equity (Keller); brand purpose (Williams, Escalas and Morningstar 2022) and purpose gaps (Knowles et al. 2022); aligned brand activism; Sinek\u2019s "start with why" as an opening, tested later against the purpose criteria; the societal marketing concept (Kotler); the Kano model; high tech and high touch (Huang and Rust); micro and macro environment analysis (Kotler and Armstrong).</p>
+  <p class="small">The core principles of marketing (Tomczak; Herhausen); jobs to be done (Christensen et al. 2016) and the value proposition canvas; customer-based brand equity (Keller); brand purpose (Williams, Escalas and Morningstar 2022) and purpose gaps (Knowles et al. 2022); aligned brand activism; Sinek\u2019s "start with why" as an opening, tested later against the purpose criteria; the societal marketing concept (Kotler); the Kano model; high tech and high touch (Huang and Rust); micro and macro environment analysis (Kotler and Armstrong).</p>
 </div>`;}
 
 /* ===================== RENDER ===================== */
